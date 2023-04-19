@@ -1,0 +1,30 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33530.505
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HTTPMessageSender", "HTTPMessageSender.csproj", "{DE146CAD-22EE-4FAA-A37B-2EC40D9600D6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{FA62B345-4EF1-4D8B-AF26-AA902738A27B}"
+	ProjectSection(SolutionItems) = preProject
+		resources\—Pngtree—vector setting icon_3996143.png = resources\—Pngtree—vector setting icon_3996143.png
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DE146CAD-22EE-4FAA-A37B-2EC40D9600D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DE146CAD-22EE-4FAA-A37B-2EC40D9600D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DE146CAD-22EE-4FAA-A37B-2EC40D9600D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DE146CAD-22EE-4FAA-A37B-2EC40D9600D6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {06296245-577B-4FC8-AA60-03B4DE8D82A0}
+	EndGlobalSection
+EndGlobal
