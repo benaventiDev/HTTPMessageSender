@@ -3,23 +3,37 @@ using CsvHelper;
 using HTTPMessageSender.Structures;
 using System.Globalization;
 using System.Text;
-using System.Windows.Forms;
 using Newtonsoft.Json;
 using System.IO;
-using System;
 using System.Net.Http;
-using System.Threading.Tasks;
-using System.Net.Http;
-using System.Text.Json;
 using System.Net;
-using System.Security.Cryptography.X509Certificates;
-using static System.Windows.Forms.LinkLabel;
 using System.Text.RegularExpressions;
+using HTTPMessageSender.http;
+using HTTPMessageSender.interfaces;
+using HTTPMessageSender.file;
+using System.Security.Principal;
 
 namespace HTTPMessageSender
 {
-    public partial class Form1 : Form
+    public partial class Form1 : Form, Observer
     {
+
+        
+        byte[] crypto_key = new byte[]{
+    0xe0, 0x79, 0x65, 0x0d, 0x1d, 0xe0, 0xe1, 0xe4,
+    0x87, 0x79, 0xc7, 0x50, 0x6d, 0x48, 0x36, 0xf8,
+    0xb9, 0x67, 0x89, 0x02, 0x2e, 0x93, 0xb4, 0xf1,
+    0x67, 0xc2, 0xc2, 0xaf, 0x48, 0xab, 0x4e, 0xb5
+    };
+        byte[] iv = new byte[]
+{
+    0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef,
+    0xfe, 0xdc, 0xba, 0x09, 0x87, 0x65, 0x43, 0x21
+};
+        private bool repoAlive = false;
+        
+
+        private List<string> fileErrors = new List<string>();
         public enum FileType
         {
             MU, REPORT, HEADER
@@ -28,23 +42,25 @@ namespace HTTPMessageSender
         public List<Line> headers = null;
         public List<Line> MUS = null;
         public List<string> errorList = new List<string>();
-        public string MainFolder;
+        public bool isTestMode = false;
+        public string MainFolder = "";
+        public string DownloadFolder = "";
+        public string DateFormat = "dd/MM/yy";
+
         string configFilePath = ".config.json";
-        private string URI_HEADER = "https://wfm-telus.corp.ads";
-        //private string URL = "https://wfm-telus.corp.ads/supv/ConformanceByIntervalReport.do";
-        private string URL = "http://192.168.1.22:5000";
+        private string URI_HEADER;
+        private string URL_REPORT_VIEW;
+
+
         public Form1()
         {
+
             InitializeComponent();
             InitializeFlowPanels();
             LoadCurrentConfiguration();
             MainFolder = null;
-
-            //TODO load from configuration
-
-            /*JSessionID1.Text = "SessionID1";
-            JSessionID2.Text = "SessionID2";
-            LFRSession.Text = "LFRSession";*/
+            WarningsLabel.Visible = false;
+ 
         }
 
 
@@ -70,15 +86,20 @@ namespace HTTPMessageSender
             Settings settings = new Settings();
             settings.ShowDialog();
             MainFolder = settings.MainFolder;
+            DownloadFolder = settings.DownloadsFolder;
+            DateFormat = settings.DateFormat;
             int count = settings.getErrorsCount();
-            if (count == 0 && !MainFolder.Equals("") && settings.processFiles)
+            if (count == 0 && !MainFolder.Equals("") && settings.ProcessFiles)
             {
+                fileErrors.Clear();
                 SetHeadersMUReports();
                 // Serialize the data to JSON format
-                var data = new { fileName = MainFolder };
+                var data = new { fileName = MainFolder, downloads = DownloadFolder, dateFormat = DateFormat, isTestMode = false };
                 var json = JsonConvert.SerializeObject(data, Formatting.Indented);
                 // Write the JSON to a file
                 File.WriteAllText(configFilePath, json);
+                WarningsLabel.Visible = false;
+
 
             }
             else
@@ -87,13 +108,49 @@ namespace HTTPMessageSender
             }
         }
 
+        public static string GetValueFromCsv(string csvContent, string targetValue)
+        {
+            // Split the CSV content by new lines to get individual rows
+            var rows = csvContent.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var row in rows)
+            {
+                // Split the row into columns
+                var columns = row.Split(',');
+
+                // If the second column's value matches the target value
+                if (columns.Length > 1 && columns[1].Trim() == targetValue)
+                {
+                    return columns[0].Trim();  // Return the value of the first column
+                }
+            }
+
+            return null; // Return null if no matching value is found
+        }
+
 
         private void SetHeadersMUReports()
         {
             warningsPanel.Controls.Clear();
             headers = ReadCSV(Path.Combine(MainFolder, "Headers.csv"));
-            MUS = ReadCSV(Path.Combine(MainFolder, "MUS.csv"));
+            //headersResult = ReadCSV(Path.Combine(MainFolder, "HeadersResult.csv"));
+            //MUS = ReadCSV(Path.Combine(MainFolder, "MUS.csv"));
+            List<Line> MusSelected = ReadCSV(Path.Combine(MainFolder, "MUS.csv"));
+            var musstr = Crypto.DecryptCsvFileToString(Path.Combine(MainFolder, "mus.dat"), crypto_key, iv);
+            MUS = new List<Line>();
+            for (int i = 0; i < MusSelected.Count; i++)
+            {
+                if (MusSelected[i].value == "TRUE")
+                {
+                    MUS.Add(new Line(MusSelected[i].key, GetValueFromCsv(musstr, MusSelected[i].key)));
+                    ;
+                }
+            }
             reportList = BuildReports(Path.Combine(MainFolder, "reports"));
+            ReadURLS();
+
+
+
             if (errorList.Count > 0)
             {
                 AddWarnings(errorList);
@@ -107,7 +164,14 @@ namespace HTTPMessageSender
 
 
         }
-
+        private void ReadURLS()
+        {
+            string urls = File.ReadAllText(Path.Combine(MainFolder, "URL.json"));
+            // Deserialize the JSON string into a Dictionary<string, string>
+            Dictionary<string, string> configValues = JsonConvert.DeserializeObject<Dictionary<string, string>>(urls);
+            URI_HEADER = configValues["URL_HEADER"];
+            URL_REPORT_VIEW = configValues["URL_REPORT_VIEW"];
+        }
         private void ShowMUs()
         {
 
@@ -143,6 +207,23 @@ namespace HTTPMessageSender
                 Report report = new Report();
                 report.name = Path.GetFileNameWithoutExtension(csvFile);
                 report.lines = ReadCSV(csvFile);
+                foreach (var line in report.lines)
+                {
+                    if (line.value.EndsWith(".json"))
+                    {
+                        string jsonFilePath = Path.Combine(report_folder, line.value);
+                        if (File.Exists(jsonFilePath))
+                        {
+                            string jsonContent = File.ReadAllText(jsonFilePath);
+                            line.value = jsonContent;
+                        }
+                        else
+                        {
+                            // Handle the case where the JSON file is not found
+                            // For example, log an error or set a default value
+                        }
+                    }
+                }
                 reports.Add(report);
             }
 
@@ -183,42 +264,54 @@ namespace HTTPMessageSender
             return headers;
         }
 
+
         private void LoadCurrentConfiguration()
         {
             if (File.Exists(configFilePath))
             {
+
                 // Read the contents of the file
                 string json = File.ReadAllText(configFilePath);
 
-                // Deserialize the JSON string into a Dictionary<string, string>
-                Dictionary<string, string> configValues = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
                 try
                 {
+                    // Deserialize the JSON string into a Dictionary<string, string>
+                    Dictionary<string, string> configValues = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
+
                     // Access the config values using the keys
                     MainFolder = configValues["fileName"];
+                    DownloadFolder = configValues["downloads"];
+                    DateFormat = configValues["dateFormat"];
+                    isTestMode = bool.Parse(configValues["isTestMode"]);
                 }
                 catch (Exception e)
                 {
-                    List<string> errors = new List<string>();
-                    errors.Add(e.Message);
-                    AddWarnings(errors);
+                    fileErrors.Add("Error occured while reading the json file: " + e.Message);
+                    WarningsLabel.Visible = true;
+                    AddWarnings(fileErrors);
                     return;
                 }
+                fileErrors.Clear();
                 if (MainFolder != null)
                 {
 
-                    Settings settings = new Settings();
-                    List<string> fileErrors = settings.checkFilesExistance(MainFolder);
+                    fileErrors = Settings.CheckFilesExistance(MainFolder, DownloadFolder);
                     if (fileErrors.Count != 0)
                     {
+                        WarningsLabel.Visible = true;
                         AddWarnings(fileErrors);
                         return;
                     }
                     else
                     {
+
                         SetHeadersMUReports();
 
                     }
+                }
+                else
+                {
+                    fileErrors.Add("Configuration folder missing");
                 }
 
 
@@ -231,6 +324,10 @@ namespace HTTPMessageSender
 
         public void AddWarnings(List<string> warningMessages)
         {
+            foreach (string err in warningMessages)
+            {
+                MessageBox.Show(err.ToString());
+            }
             warningsPanel.Controls.Clear();
             FlowLayoutPanel flowLayoutPanel = new FlowLayoutPanel();
             flowLayoutPanel.AutoScroll = true;
@@ -267,24 +364,56 @@ namespace HTTPMessageSender
                 Form1 form = f;
 
                 // Add the file name label
-                var fileNameLabel = new Label();
-                fileNameLabel.Text = fileName;
-                fileNameLabel.Location = new Point(10, 5);
-                fileNameLabel.AutoSize = true;
+                var fileNameLabel = new Label
+                {
+                    Text = fileName,
+                    Location = new Point(10, 5),
+                    AutoSize = true
+                };
                 this.Padding = new Padding(15, 0, 0, 0);
                 this.Controls.Add(fileNameLabel);
 
                 // Add the checkbox
-                checkBox = new CheckBox();
-                checkBox.Text = "";
-                checkBox.Location = new Point(180, 0);
-                checkBox.Tag = i; // store the index in the Tag property
+                checkBox = new CheckBox
+                {
+                    Text = "",
+                    Location = new Point(170, 0),
+                    Tag = i // store the index in the Tag property
+                };
                 checkBox.CheckedChanged += (sender, e) =>
                 {
                     CheckBox checkbox = (CheckBox)sender;
                     int index = (int)checkbox.Tag; // get the index from the Tag property
                     if (checkbox.Checked)
                     {
+                        FlowLayoutPanel flowLayoutPanel = (fileType == FileType.REPORT ? form.ReportLayoutPanel : form.MUFlowLayoutPanel);
+                        bool allChecked = true;
+
+
+                        foreach (FancyPanelItem panelItem in flowLayoutPanel.Controls.OfType<FancyPanelItem>())
+                        {
+                            if (panelItem.checkBox != checkBox && !panelItem.checkBox.Checked)
+                            {
+                                allChecked = false;
+                                break;
+                            }
+                        }
+
+                        if (allChecked)
+                        {
+                            if (fileType == FileType.REPORT)
+                            {
+                                form.ReportsCheckBoxk.CheckedChanged -= form.ReportsCheckBoxk_CheckedChanged;
+                                form.ReportsCheckBoxk.Checked = true;
+                                form.ReportsCheckBoxk.CheckedChanged += form.ReportsCheckBoxk_CheckedChanged;
+                            }
+                            else if (fileType == FileType.MU)
+                            {
+                                form.MUCheckBox.CheckedChanged -= form.MUCheckBox_CheckedChanged;
+                                form.MUCheckBox.Checked = true;
+                                form.MUCheckBox.CheckedChanged += form.MUCheckBox_CheckedChanged;
+                            }
+                        }
                         if (fileType == FileType.REPORT)
                         {
                             form.reportList[index].check();
@@ -315,18 +444,36 @@ namespace HTTPMessageSender
                 this.Controls.Add(checkBox);
 
                 // Set the size of the panel
-                this.Size = new Size(210, checkBox.Bottom);
+                this.Size = new Size(200, checkBox.Bottom);
             }
         }
 
         private void ExecuteReportsOnClick(object sender, EventArgs e)
         {
+            
+            if (fileErrors.Count != 0)
+            {
+                return;
+            }
+            resultFlowLayoutPanel.Controls.Clear();
+            if (downloadsCheckBox.Checked)
+            {
+                FileDeleter.DeleteDownloads(DownloadFolder);
+            }
             ExecuteReports();
         }
 
         private async void ExecuteReports()
         {
+            if (fileErrors.Count != 0)
+            {
+                return;
+            }
             resultFlowLayoutPanel.Controls.Clear();
+            outputLabel.Visible = true;
+            DateTime pickedDate = dateTimePicker.Value;
+            RequestSender rsender = new RequestSender(URI_HEADER, JSessionID1.Text, JSessionID1.Text, LFRSession.Text, headers);
+            rsender.subscribe(this);
             foreach (Report report in reportList)
             {
                 if (report.isChecked())
@@ -335,169 +482,14 @@ namespace HTTPMessageSender
                     {
                         if (mu.isChecked())
                         {
-                            SendRequest(report, mu);
+                            rsender.SendRequest(report, mu, pickedDate, DateFormat, isTestMode);
                             // Wait for 1-2 seconds before sending the next request
-                            int delayTime = new Random().Next(1000, 2000); // Generate a random delay time between 1000ms and 2000ms
+                            int delayTime = new Random().Next(2500, 3000); // Generate a random delay time between 1000ms and 2000ms
                             await Task.Delay(delayTime);
                         }
                     }
                 }
             }
-        }
-
-
-        private async void SendRequest(Report report, Line mu)//string url, Dictionary<string, string> headers, string body)
-        {
-            {
-                try
-                {
-                    string randomToken = GetRandomToken();
-                    //setCookies(randomToken);
-
-
-                    //*******************************BODY
-                    DateTime now = DateTime.UtcNow;
-                    TimeZoneInfo easternTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
-                    DateTime easternTime = TimeZoneInfo.ConvertTimeFromUtc(now, easternTimeZone);
-                    string easternDateString = easternTime.ToString("dd/MM/yy");
-
-
-                    DateTime date = dateTimePicker.Value;
-                    string dateString = date.ToString("dd/MM/yy");
-                    string monthName = date.ToString("MMMM").ToUpper();
-                    var request = new HttpRequestMessage(HttpMethod.Post, URL);
-                    List<Line> reportLines = new();
-                    reportLines.AddRange(report.lines);
-                    reportLines.Add(new Line("wfm_csrf_token", randomToken));
-                    reportLines.Add(new Line("muIdParam", mu.value));
-                    reportLines.Add(new Line("muNameParam", mu.value));
-                    reportLines.Add(new Line("stAbsDate", dateString));
-                    reportLines.Add(new Line("endAbsDate", dateString));
-                    reportLines.Add(new Line("yearlyByOrdinalMonth", monthName));
-                    reportLines.Add(new Line("scheduleStartDate", easternDateString));
-
-
-                    //**********************************CONTENT
-                    // Convert the list to key-value pairs
-                    IEnumerable<KeyValuePair<string, string>> formData = reportLines.Select(l => new KeyValuePair<string, string>(l.key, l.value));
-                    // Encode the form data
-                    FormUrlEncodedContent content = new FormUrlEncodedContent(formData);
-                    // Set the content type header
-                    content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/x-www-form-urlencoded");
-                    // Set the content length header
-                    content.Headers.ContentLength = content.ReadAsStringAsync().Result.Length;
-                    request.Content = content;
-                    //**********************************Coookies
-                    CookieContainer cookies = SetCookies(randomToken);
-                    var handler = new HttpClientHandler { CookieContainer = cookies };
-                    request.Headers.Add("Cookie", cookies.GetCookieHeader(new Uri(URI_HEADER + "/supv")));
-                    using var httpClient = new HttpClient(handler);
-                    //***********************************HEADERS
-                    foreach (Line line in headers)
-                    {
-                        httpClient.DefaultRequestHeaders.Add(line.key, line.value);
-                    }
-
-                    string contentString = await content.ReadAsStringAsync();
-                    printRequestAsync(contentString, httpClient.DefaultRequestHeaders.ToString());
-                    //***********************************Sending the HTTP request
-                    var response = await httpClient.SendAsync(request);
-                    // Get the response status code
-                    HttpStatusCode statusCode = response.StatusCode;
-                    // Read the response body as a string
-                    string responseBody = await response.Content.ReadAsStringAsync();
-                    AddResult(((int)statusCode), report.name, mu.key);
-
-                }
-                catch (Exception ex)
-                {
-                    // Handle any exceptions that occur
-                    //Console.WriteLine($"Exception occurred: {ex.Message}");
-                    //MessageBox.Show(ex.Message);
-                    AddResult(999, report.name, mu.key + " " + ex.Message);
-                }
-            }
-        }
-
-        private void printRequestAsync(string content, string headers)
-        {
-            using (StreamWriter writer = new StreamWriter("request.txt"))
-            {
-                writer.WriteLine("Headers:");
-                // Save the headers and content to a file
-                writer.Write(headers);
-                writer.WriteLine();
-                writer.WriteLine("Content:");
-                writer.WriteLine(content);
-                //"request.txt", headers + Environment.NewLine + " Content: " + content);
-            }
-        }
-        private CookieContainer SetCookies(string random)
-        {
-            //HttpClientHandler handler = new HttpClientHandler();
-            //handler.CookieContainer = new CookieContainer();
-            // Create a CookieContainer to store cookies
-            var cookies = new CookieContainer();
-            Cookie cookie1 = new("JSESSIONID", JSessionID1.Text)
-            {
-                Expires = DateTime.Now.AddDays(2),
-                Domain = "wfm-telus.corp.ads",
-                Path = "/supv"
-            };
-
-            Cookie cookie2 = new("JSESSIONID", JSessionID2.Text)
-            {
-                Expires = DateTime.Now.AddDays(2),
-                Domain = "wfm-telus.corp.ads",
-                Path = "/"
-            };
-
-            Cookie cookie3 = new("LFR_SESSION_STATE_194630", LFRSession.Text)
-            {
-                Expires = DateTime.Now.AddDays(2),
-                Domain = "wfm-telus.corp.ads",
-                Path = "/"
-            };
-
-            Cookie cookie4 = new("reportFormatTypeCookie", "XLS")
-            {
-                Expires = DateTime.Now.AddDays(2),
-                Domain = "wfm-telus.corp.ads",
-                Path = "/"
-            };
-
-            Cookie cookie5 = new("wfm_csrf_token", random)
-            {
-                Expires = DateTime.Now.AddDays(2),
-                Domain = "wfm-telus.corp.ads",
-                Path = "/"
-            };
-            // Add cookies to the cookie container
-            cookies.Add(new Uri(URI_HEADER + "/supv"), cookie1);
-            cookies.Add(new Uri(URI_HEADER), cookie2);
-            cookies.Add(new Uri(URI_HEADER), cookie3);
-            cookies.Add(new Uri(URI_HEADER), cookie4);
-            cookies.Add(new Uri(URI_HEADER), cookie5);
-            return cookies;
-        }
-
-        public static string GetRandomToken()
-        {
-            /*Random random = new Random();
-            string randomString = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
-            string randomSubstring = randomString.Substring(randomString.Length - 8);
-            return randomSubstring;*/
-
-
-            Random random = new Random();
-            string randomString = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
-            string randomSubstring = randomString.Substring(randomString.Length - 8);
-
-            // Remove any non-alphanumeric characters
-            Regex regex = new Regex("[^a-zA-Z0-9]");
-            randomSubstring = regex.Replace(randomSubstring, "");
-
-            return randomSubstring;
         }
 
         public void AddResult(int code, string report, string mu)
@@ -528,9 +520,6 @@ namespace HTTPMessageSender
             resultFlowLayoutPanel.Controls.Clear();
         }
 
-
-
-
         private void MUCheckBox_CheckedChanged(object sender, EventArgs e)
         {
             bool isChecked = MUCheckBox.Checked;
@@ -555,5 +544,75 @@ namespace HTTPMessageSender
             }
 
         }
+
+
+        private void DownloadsDeleteOnClick(object sender, EventArgs e)
+        {
+            if (!repoAlive)
+            {
+                return;
+            }
+            FileDeleter.DeleteDownloads(DownloadFolder);
+        }
+
+
+
+        private async void DeleteReportsOnlineOnClickAsync(object sender, EventArgs e)
+        {
+            if (!repoAlive)
+            {
+                return;
+            }
+            //MessageBox.Show(WindowsIdentity.GetCurrent().Name);
+
+            //string input = "C:\\Users\\benav\\Documents\\musraw.csv";
+            //string output = "C:\\Users\\benav\\Documents\\mus.dat";
+
+            //Crypto.EncryptCsvFile(input, output, crypto_key, iv);
+
+            /*
+            //TODO: Check the case when random token is empty
+            var request = new HttpRequestMessage(HttpMethod.Post, URL);
+            List<Line> bodyLines = new();
+            bodyLines.Add(new Line("selectedTabAction", "/showReportList.do?lang=en_CA"));
+            //**********************************CONTENT
+            // Convert the list to key-value pairs
+            IEnumerable<KeyValuePair<string, string>> formData = bodyLines.Select(l => new KeyValuePair<string, string>(l.key, l.value));
+            // Encode the form data
+            FormUrlEncodedContent content = new FormUrlEncodedContent(formData);
+            // Set the content type header
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/x-www-form-urlencoded");
+            // Set the content length header
+            content.Headers.ContentLength = content.ReadAsStringAsync().Result.Length;
+            request.Content = content;
+            //**********************************Coookies
+            CookieContainer cookies = SetCookies(randomToken);
+            var handler = new HttpClientHandler { CookieContainer = cookies };
+            request.Headers.Add("Cookie", cookies.GetCookieHeader(new Uri(URI_HEADER + "/supv")));
+            using var httpClient = new HttpClient(handler);
+            //***********************************HEADERS
+            foreach (Line line in headersResult)
+            {
+                httpClient.DefaultRequestHeaders.Add(line.key, line.value);
+            }
+
+            //string contentString = await content.ReadAsStringAsync();
+            //PrintRequestAsync(contentString, httpClient.DefaultRequestHeaders.ToString(), report.name, mu.key, randomToken);
+            //***********************************Sending the HTTP request
+            var response = await httpClient.SendAsync(request);
+            // Get the response status code
+            HttpStatusCode statusCode = response.StatusCode;
+            // Read the response body as a string
+            string responseBody = await response.Content.ReadAsStringAsync();
+            AddResult(((int)statusCode), "", "");*/
+        }
+
+        private void DownloadReportsOnlineOnClick(object sender, EventArgs e)
+        {
+
+        }
+
+
+        
     }
 }

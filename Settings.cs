@@ -13,22 +13,26 @@ using CsvHelper.Configuration;
 using System.Globalization;
 using System.Configuration;
 using HTTPMessageSender.Structures;
-
+using Microsoft.VisualBasic.Logging;
 
 namespace HTTPMessageSender
 {
     public partial class Settings : Form
     {
 
-        public  List<string> Errors { get; private set; }
+        public List<string> Errors { get; private set; }
         public string MainFolder { get; private set; }
-        public bool processFiles { get; private set; }
+        public bool ProcessFiles { get; private set; }
+        public string DateFormat { get; private set; }
+        public string DownloadsFolder { get; private set; }
         public Settings()
         {
             InitializeComponent();
             MainFolder = "";
+            DownloadsFolder = "";
             Errors = new List<string>();
-            processFiles = false;
+            ProcessFiles = false;
+
         }
 
         private void Settings_Load(object sender, EventArgs e)
@@ -37,10 +41,11 @@ namespace HTTPMessageSender
         }
 
         public int
-            getErrorsCount() { 
+            getErrorsCount()
+        {
             return Errors.Count;
         }
-        private void selectFolderOnClick(object sender, EventArgs e)
+        private void SelectFolderOnClick(object sender, EventArgs e)
         {
             // Create an instance of the FolderBrowserDialog
             FolderBrowserDialog folderBrowserDialog = new FolderBrowserDialog();
@@ -54,15 +59,16 @@ namespace HTTPMessageSender
             }
         }
 
-        public List<string> checkFilesExistance(string selectedPath)
+        public static List<string> CheckFilesExistance(string selectedPath, string DownloadsFolder)
         {
             List<string> errorMessages = new List<string>();
 
-            if (selectedPath.Equals("")) {
+            if (selectedPath.Equals(""))
+            {
                 errorMessages.Add("Please select a folder that contains the new configuration.");
                 return errorMessages;
             }
-            
+
             //Check if selectedPath exits
             if (!Directory.Exists(Path.Combine(selectedPath)))
             {
@@ -78,6 +84,14 @@ namespace HTTPMessageSender
             {
                 errorMessages.Add("Headers csv file not found.");
             }
+            if (!File.Exists(Path.Combine(selectedPath, "URL.json")))
+            {
+                errorMessages.Add("URL json file not found.");
+            }
+            if (!Directory.Exists(Path.Combine(DownloadsFolder)))
+            {
+                errorMessages.Add("Downloads folder not found.");
+            }
             if (!Directory.Exists(Path.Combine(selectedPath, "reports")))
             {
                 errorMessages.Add("reports folder not found.");
@@ -91,9 +105,12 @@ namespace HTTPMessageSender
                     errorMessages.Add("No .csv files found inside report folder.");
                 }
             }
+
+
+
             return errorMessages;
         }
-        private void displayErrors(List<string> errorMessages)
+        private void DisplayErrors(List<string> errorMessages)
         {
             // Create a FlowLayoutPanel control
             FlowLayoutPanel flowLayoutPanel = new FlowLayoutPanel();
@@ -126,22 +143,23 @@ namespace HTTPMessageSender
             // Show the Panel control
             panel1.Visible = true;
         }
-        private void checkFolderOnClick(object sender, EventArgs e)
+        private void CheckFolderOnClick(object sender, EventArgs e)
         {
             MainFolder = textBox1.Text;
+            DownloadsFolder = DownloadTextBox.Text;
+            DateFormat = textBoxDate.Text;
+
             Errors.Clear();
-            Errors = checkFilesExistance(MainFolder);
+            Errors = CheckFilesExistance(MainFolder, DownloadsFolder);
 
 
             if (Errors.Count > 0)
             {
-                displayErrors(Errors);
+                DisplayErrors(Errors);
             }
             else
             {
-                // Hide the Panel control
-                //panel1.Visible = false;
-                processFiles = true;
+                ProcessFiles = true;
                 this.Close();
             }
             ;
@@ -164,6 +182,18 @@ namespace HTTPMessageSender
 
         }
 
-        
+        private void ChooseDownLoadFolderOnClick(object sender, EventArgs e)
+        {
+            // Create an instance of the FolderBrowserDialog
+            FolderBrowserDialog folderBrowserDialog = new FolderBrowserDialog();
+
+            // Display the FolderBrowserDialog and wait for the user to select a folder
+            if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
+            {
+                // Get the selected folder path
+                string selectedPath = folderBrowserDialog.SelectedPath;
+                DownloadTextBox.Text = selectedPath;
+            }
+        }
     }
 }

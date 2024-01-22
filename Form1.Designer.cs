@@ -42,7 +42,7 @@
             warningsPanel = new Panel();
             label2 = new Label();
             label3 = new Label();
-            label4 = new Label();
+            WarningsLabel = new Label();
             button2 = new Button();
             resultFlowLayoutPanel = new FlowLayoutPanel();
             MUCheckBox = new CheckBox();
@@ -50,11 +50,12 @@
             ReportLayoutPanel = new FlowLayoutPanel();
             MUFlowLayoutPanel = new FlowLayoutPanel();
             checkBox1 = new CheckBox();
-            label9 = new Label();
             checkBox2 = new CheckBox();
-            label10 = new Label();
+            outputLabel = new Label();
             button1 = new Button();
-            checkBox3 = new CheckBox();
+            downloadsCheckBox = new CheckBox();
+            button3 = new Button();
+            button4 = new Button();
             panel1.SuspendLayout();
             SuspendLayout();
             // 
@@ -78,7 +79,7 @@
             panel1.Controls.Add(label7);
             panel1.Controls.Add(label6);
             panel1.Controls.Add(label5);
-            panel1.Location = new Point(529, 31);
+            panel1.Location = new Point(654, 34);
             panel1.Name = "panel1";
             panel1.Size = new Size(646, 237);
             panel1.TabIndex = 1;
@@ -125,9 +126,9 @@
             label7.AutoSize = true;
             label7.Location = new Point(22, 96);
             label7.Name = "label7";
-            label7.Size = new Size(152, 15);
+            label7.Size = new Size(111, 15);
             label7.TabIndex = 2;
-            label7.Text = "LFR_SESSION_STATE_194630";
+            label7.Text = "LFR_SESSION_STATE";
             // 
             // label6
             // 
@@ -163,9 +164,9 @@
             // 
             // warningsPanel
             // 
-            warningsPanel.Location = new Point(23, 423);
+            warningsPanel.Location = new Point(278, 430);
             warningsPanel.Name = "warningsPanel";
-            warningsPanel.Size = new Size(500, 100);
+            warningsPanel.Size = new Size(348, 164);
             warningsPanel.TabIndex = 5;
             // 
             // label2
@@ -180,28 +181,28 @@
             // label3
             // 
             label3.AutoSize = true;
-            label3.Location = new Point(278, 60);
+            label3.Location = new Point(336, 60);
             label3.Name = "label3";
             label3.Size = new Size(31, 15);
             label3.TabIndex = 7;
             label3.Text = "MUs";
             // 
-            // label4
+            // WarningsLabel
             // 
-            label4.AutoSize = true;
-            label4.Location = new Point(23, 387);
-            label4.Name = "label4";
-            label4.Size = new Size(68, 15);
-            label4.TabIndex = 8;
-            label4.Text = "Warning(s):";
+            WarningsLabel.AutoSize = true;
+            WarningsLabel.Location = new Point(278, 384);
+            WarningsLabel.Name = "WarningsLabel";
+            WarningsLabel.Size = new Size(68, 15);
+            WarningsLabel.TabIndex = 8;
+            WarningsLabel.Text = "Warning(s):";
             // 
             // button2
             // 
-            button2.Location = new Point(23, 560);
+            button2.Location = new Point(34, 560);
             button2.Name = "button2";
             button2.Size = new Size(160, 34);
             button2.TabIndex = 9;
-            button2.Text = "Execute Reports";
+            button2.Text = "Execute Selected Steps";
             button2.UseVisualStyleBackColor = true;
             button2.Click += ExecuteReportsOnClick;
             // 
@@ -209,16 +210,16 @@
             // 
             resultFlowLayoutPanel.AutoScroll = true;
             resultFlowLayoutPanel.FlowDirection = FlowDirection.TopDown;
-            resultFlowLayoutPanel.Location = new Point(551, 335);
+            resultFlowLayoutPanel.Location = new Point(654, 335);
             resultFlowLayoutPanel.Name = "resultFlowLayoutPanel";
-            resultFlowLayoutPanel.Size = new Size(601, 259);
+            resultFlowLayoutPanel.Size = new Size(646, 259);
             resultFlowLayoutPanel.TabIndex = 10;
             resultFlowLayoutPanel.WrapContents = false;
             // 
             // MUCheckBox
             // 
             MUCheckBox.AutoSize = true;
-            MUCheckBox.Location = new Point(462, 60);
+            MUCheckBox.Location = new Point(509, 61);
             MUCheckBox.Name = "MUCheckBox";
             MUCheckBox.Size = new Size(15, 14);
             MUCheckBox.TabIndex = 11;
@@ -228,7 +229,7 @@
             // ReportsCheckBoxk
             // 
             ReportsCheckBoxk.AutoSize = true;
-            ReportsCheckBoxk.Location = new Point(205, 60);
+            ReportsCheckBoxk.Location = new Point(195, 59);
             ReportsCheckBoxk.Name = "ReportsCheckBoxk";
             ReportsCheckBoxk.Size = new Size(15, 14);
             ReportsCheckBoxk.TabIndex = 12;
@@ -239,80 +240,99 @@
             // 
             ReportLayoutPanel.Location = new Point(23, 89);
             ReportLayoutPanel.Name = "ReportLayoutPanel";
-            ReportLayoutPanel.Size = new Size(222, 260);
+            ReportLayoutPanel.Size = new Size(260, 260);
             ReportLayoutPanel.TabIndex = 0;
             // 
             // MUFlowLayoutPanel
             // 
-            MUFlowLayoutPanel.Location = new Point(278, 89);
+            MUFlowLayoutPanel.Location = new Point(336, 89);
             MUFlowLayoutPanel.Name = "MUFlowLayoutPanel";
-            MUFlowLayoutPanel.Size = new Size(225, 260);
+            MUFlowLayoutPanel.Size = new Size(260, 260);
             MUFlowLayoutPanel.TabIndex = 0;
             // 
             // checkBox1
             // 
             checkBox1.AutoSize = true;
-            checkBox1.Location = new Point(734, 278);
+            checkBox1.Location = new Point(230, 430);
             checkBox1.Name = "checkBox1";
             checkBox1.Size = new Size(15, 14);
             checkBox1.TabIndex = 13;
             checkBox1.UseVisualStyleBackColor = true;
-            // 
-            // label9
-            // 
-            label9.AutoSize = true;
-            label9.Location = new Point(537, 277);
-            label9.Name = "label9";
-            label9.Size = new Size(131, 15);
-            label9.TabIndex = 14;
-            label9.Text = "Delete Previous Reports";
+            checkBox1.Visible = false;
             // 
             // checkBox2
             // 
             checkBox2.AutoSize = true;
-            checkBox2.Location = new Point(734, 304);
+            checkBox2.Location = new Point(230, 485);
             checkBox2.Name = "checkBox2";
             checkBox2.Size = new Size(15, 14);
             checkBox2.TabIndex = 15;
             checkBox2.UseVisualStyleBackColor = true;
+            checkBox2.Visible = false;
             // 
-            // label10
+            // outputLabel
             // 
-            label10.AutoSize = true;
-            label10.Location = new Point(537, 303);
-            label10.Name = "label10";
-            label10.Size = new Size(144, 15);
-            label10.TabIndex = 16;
-            label10.Text = "Download after generated";
+            outputLabel.AutoSize = true;
+            outputLabel.Location = new Point(654, 306);
+            outputLabel.Name = "outputLabel";
+            outputLabel.Size = new Size(45, 15);
+            outputLabel.TabIndex = 16;
+            outputLabel.Text = "Output";
+            outputLabel.Visible = false;
             // 
             // button1
             // 
-            button1.Location = new Point(966, 277);
+            button1.Location = new Point(34, 371);
             button1.Name = "button1";
             button1.Size = new Size(186, 40);
             button1.TabIndex = 17;
             button1.Text = "Delete Reports From Local Machine";
             button1.UseVisualStyleBackColor = true;
+            button1.Click += DownloadsDeleteOnClick;
             // 
-            // checkBox3
+            // downloadsCheckBox
             // 
-            checkBox3.AutoSize = true;
-            checkBox3.Location = new Point(1160, 291);
-            checkBox3.Name = "checkBox3";
-            checkBox3.Size = new Size(15, 14);
-            checkBox3.TabIndex = 18;
-            checkBox3.UseVisualStyleBackColor = true;
+            downloadsCheckBox.AutoSize = true;
+            downloadsCheckBox.Location = new Point(230, 385);
+            downloadsCheckBox.Name = "downloadsCheckBox";
+            downloadsCheckBox.Size = new Size(15, 14);
+            downloadsCheckBox.TabIndex = 18;
+            downloadsCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // button3
+            // 
+            button3.Location = new Point(34, 417);
+            button3.Name = "button3";
+            button3.Size = new Size(182, 38);
+            button3.TabIndex = 19;
+            button3.Text = "Delete Reports From Webby";
+            button3.UseVisualStyleBackColor = true;
+            button3.UseWaitCursor = true;
+            button3.Visible = false;
+            button3.Click += DeleteReportsOnlineOnClickAsync;
+            // 
+            // button4
+            // 
+            button4.Location = new Point(34, 471);
+            button4.Name = "button4";
+            button4.Size = new Size(182, 40);
+            button4.TabIndex = 20;
+            button4.Text = "Downloads Reports From Webby";
+            button4.UseVisualStyleBackColor = true;
+            button4.Visible = false;
+            button4.Click += DownloadReportsOnlineOnClick;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1187, 637);
-            Controls.Add(checkBox3);
+            ClientSize = new Size(1390, 637);
+            Controls.Add(button4);
+            Controls.Add(button3);
+            Controls.Add(downloadsCheckBox);
             Controls.Add(button1);
-            Controls.Add(label10);
+            Controls.Add(outputLabel);
             Controls.Add(checkBox2);
-            Controls.Add(label9);
             Controls.Add(checkBox1);
             Controls.Add(MUFlowLayoutPanel);
             Controls.Add(ReportLayoutPanel);
@@ -320,7 +340,7 @@
             Controls.Add(MUCheckBox);
             Controls.Add(resultFlowLayoutPanel);
             Controls.Add(button2);
-            Controls.Add(label4);
+            Controls.Add(WarningsLabel);
             Controls.Add(label3);
             Controls.Add(label2);
             Controls.Add(warningsPanel);
@@ -328,7 +348,7 @@
             Controls.Add(panel1);
             Controls.Add(label1);
             Name = "Form1";
-            Text = "Form1";
+            Text = "Report Generator";
             panel1.ResumeLayout(false);
             panel1.PerformLayout();
             ResumeLayout(false);
@@ -343,7 +363,7 @@
         private Panel warningsPanel;
         private Label label2;
         private Label label3;
-        private Label label4;
+        private Label WarningsLabel;
         private Button button2;
         private Label label7;
         private Label label6;
@@ -359,10 +379,11 @@
         private Label label8;
         private DateTimePicker dateTimePicker;
         private CheckBox checkBox1;
-        private Label label9;
         private CheckBox checkBox2;
-        private Label label10;
+        private Label outputLabel;
         private Button button1;
-        private CheckBox checkBox3;
+        private CheckBox downloadsCheckBox;
+        private Button button3;
+        private Button button4;
     }
 }
